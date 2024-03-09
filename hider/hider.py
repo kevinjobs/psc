@@ -1,6 +1,7 @@
 import re
 from pprint import pprint
 from docx import Document
+import cpca
 
 
 class Hider:
@@ -22,7 +23,7 @@ class Hider:
         for para in self.paras:
             text = para.text
             if re.match(r'原告[\s\S]*一案', text):
-                break
+                return heads
             else:
                 heads.append(para)
         return heads
@@ -32,16 +33,18 @@ class Hider:
         parties = []
         for para in self.head:
             text = para.text
+
             splits = text.split('：')
 
             if len(splits) > 1:
+                # print(text)
                 identity = splits[0]
                 splits2 = splits[1].split('，')
                 name = splits2[0]
 
                 info = {
                     'identity': identity,
-                    'name': name
+                    'name': name,
                 }
 
                 if len(splits2) > 1:
@@ -77,7 +80,7 @@ class Hider:
                 else:
                     party['type'] = 'law person'
 
-            if identity == '法定代表人':
+            if identity == '法定代表人' or identity == '负责人':
                 party['type'] = 'natural person'
 
             if identity == '委托诉讼代理人':
@@ -122,14 +125,45 @@ class Hider:
 
         return hides
 
-    def replace_all(self):
+    def replace_all(self, save_path):
         for hide in self.hides:
             origin_name = hide['origin_name']
             hide_name = hide['hide_name']
-            for para in self.paras:
+            for para in self.paras[3:]:
                 para.text = para.text.replace(origin_name, hide_name)
+        
+        for para in self.paras:
+            text = para.text
+            result = re.search(r'(住所地|户籍地|现住|住)([\s\S]*)(。|，)', text)
 
-        self.doc.save('hidden.docx')
+            if result:
+                origin_address = result.group(1) + result.group(2)
+                result = re.search(r'(住所地|户籍地|现住|住)([\u4e00-\u9fa5]{0,100})市', text)
+                
+                city = None
+                district = None
+                address_flage = None
+
+                if result:
+                    address_flage = result.group(1)
+                    city = result.group(2)
+
+                result = re.search(r'(市)([\u4e00-\u9fa5]{0,100})(县|区)', text)
+                if result:
+                    district = result.group(2) + result.group(3)
+                
+                hidden_address = ''
+
+                if address_flage:
+                    hidden_address += address_flage
+                if city:
+                    hidden_address += city + '市'
+                if district:
+                    hidden_address += district
+
+                para.text = para.text.replace(origin_address, hidden_address)
+
+        self.doc.save(save_path)
 
 
 def find_duplicated_names(names, hide_name):
