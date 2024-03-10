@@ -1,3 +1,4 @@
+'''
 import os
 from win32com import client
 from hider import Hider
@@ -14,9 +15,6 @@ def transform(file_path, save_path):
 
 
 if __name__ == "__main__":
-    '''hider = Hider('./hider/test.docx')
-    hider.replace_all()'''
-
     dir_path = os.path.dirname(os.path.abspath(__file__))
 
     case_dir = './DownloadCases'
@@ -38,3 +36,5 @@ if __name__ == "__main__":
         hider = Hider(docx_path)
         # hider.hides
         hider.replace_all(save_path)
+
+'''

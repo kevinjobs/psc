@@ -1,3 +1,4 @@
+'''
 import re
 from pprint import pprint
 from docx import Document
@@ -173,9 +174,4 @@ def find_duplicated_names(names, hide_name):
             counts += 1
     return counts
 
-
-def includes(arr, key):
-    for i in arr:
-        if i == key:
-            return True
-    return False
+'''
