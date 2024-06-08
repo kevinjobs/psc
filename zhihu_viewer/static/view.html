@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Zhihu Viewer</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/2.0.0/jquery.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.6.8/axios.js"></script>
+    <style>
+      .preview {
+        height: 80vh;
+        width: 100%;
+      }
+      .preview img {
+        max-height: 100%;
+        max-width: 100%;
+      }
+      #offset {
+        width: 40px;
+      }
+      #limit {
+        width: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="viewer">
+      <div class="ques">
+        <span>
+          <label>Question Title</label>
+          <select id="ques_title"></select>
+        </span>
+        <span>
+          <label>Offset</label>
+          <input id="offset" />
+        </span>
+        <span>
+          <label>Limit</label>
+          <input id="limit" />
+        </span>
+        <button id="search">fetch</button>
+        <button id="prev">prev</button>
+        <span>
+          <span id="current"></span>
+          <span> / </span>
+          <span id="total"></span>
+        </span>
+        <button id="next">next</button>
+      </div>
+      <div class="preview">
+        <img id="preview-img" src="#" alt="preview" />
+      </div>
+    </div>
+    <script>
+      const DEFAULT_TITLE = "328457531";
+      let images;
+      let loadedImages;
+      let current = 0;
+      let offset = 0;
+      let limit = 20;
+
+      $(function () {
+        ques_title = localStorage.getItem("ques_title") || DEFAULT_TITLE;
+        offset = Number(localStorage.getItem("offset")) || offset;
+        current = Number(localStorage.getItem("current")) || 0;
+        fetchImage(ques_title, offset, limit, current);
+
+        renderQuestion();
+
+        $("#ques_title").val(ques_title);
+        $("#current").text(current + 1);
+        $("#total").text(limit);
+        $("#limit").val(limit);
+
+        $("#search").click(() => {
+          const ques_title = $("#ques_title").val();
+          fetchImage(ques_title, offset, limit, current);
+        });
+
+        $("#offset").change(function (evt) {
+          offset = Number($("#offset").val());
+        });
+        $("#limit").change(function (evt) {
+          limit = Number($("#limit").val());
+        });
+        $("#prev").click(handlePrev);
+        $("#next").click(handleNext);
+        $(document).keydown(function (evt) {
+          if (evt.keyCode == 37) {
+            handlePrev();
+          } else if (evt.keyCode == 39) {
+            handleNext();
+          }
+        });
+      });
+
+      function renderQuestion() {
+        axios.get("http://localhost:8989/questions").then((res) => {
+          if (res.data.code === 0) {
+            const ques_arr = res.data.data;
+            for (let i = 0; i < ques_arr.length; i++) {
+              $("#ques_title").append(
+                `<option value="${ques_arr[i]}">${ques_arr[i]}</option>`
+              );
+            }
+          }
+        });
+      }
+
+      function handlePrev() {
+        if (current > 0) {
+          current -= 1;
+          $("#current").text(current + 1);
+          showImage(loadedImages[current]);
+        } else {
+          if (offset > 0) {
+            offset -= limit;
+            current = limit - 1;
+            const ques_title = $("#ques_title").val();
+            $("#current").text(current + 1);
+            fetchImage(ques_title, offset, limit, current);
+          }
+        }
+        localStorage.setItem("current", current);
+      }
+
+      function handleNext() {
+        if (current < images.length - 1) {
+          current += 1;
+          $("#current").text(current + 1);
+          showImage(loadedImages[current]);
+        } else {
+          offset += limit;
+          current = 0;
+          const ques_title = $("#ques_title").val();
+          $("#current").text(current + 1);
+          fetchImage(ques_title, offset, limit, current);
+        }
+        localStorage.setItem("current", current);
+      }
+
+      function fetchImage(ques_title, offset, limit, current) {
+        localStorage.setItem("offset", offset);
+        localStorage.setItem("ques_title", ques_title);
+
+        $("#ques_title").val(ques_title);
+        $("#offset").val(offset);
+
+        axios({
+          url: "http://localhost:8989/images",
+          method: "get",
+          params: {
+            ques_title,
+            offset,
+            limit,
+          },
+        }).then((res) => {
+          if (res.data.code === 0) {
+            images = res.data.data;
+          }
+          preload(images, function () {
+            showImage(loadedImages[current]);
+          });
+        });
+      }
+
+      function showImage(img) {
+        $("#preview-img").remove();
+        $(".preview").append(img);
+      }
+
+      function preload(imageUrls, callback) {
+        let loaded = 0;
+        let images = [];
+
+        for (let i = 0; i < imageUrls.length; i++) {
+          let img = new Image();
+          img.onload = function () {
+            loaded++;
+            if (loaded === imageUrls.length) {
+              loadedImages = images;
+              callback();
+            }
+          };
+
+          img.onerror = function () {
+            loaded++;
+            if (loaded === imageUrls.length) {
+              loadedImages = images;
+              callback();
+            }
+          };
+
+          img.src = imageUrls[i].source;
+          img.id = "preview-img";
+          img.alt = "preview-img";
+          images.push(img);
+        }
+      }
+    </script>
+  </body>
+</html>
